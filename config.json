@@ -1,0 +1,47 @@
+{
+    "port": 6969,
+    "master": {
+	"uri":"10.0.24.118",
+	"ncpu":2
+    },
+    "zombies":[
+	{
+	    "uri":"tsung1",
+	    "ncpu":2
+	},
+	{
+	    "uri":"tsung2",
+	    "ncpu":2
+	}
+    ],
+    "commandlist":[
+	{
+	    "probability": 30,
+	    "iterations": 10000,
+	    "sequence": [
+		{
+		    "url":"https://transcel.inet/m3/customer/18768183164",
+		    "content-type":"text/html",
+		    "method":"GET"
+		},
+		{
+		    "url":"https://transcel.inet/m3/MicroLoan/ListAllMFIs",
+		    "content-type":"text/html",
+		    "method":"GET"
+		}
+	    ]
+	    
+	},
+	{
+	    "probability": 70,
+	    "iterations": 10000,
+	    "sequence": [
+		{
+		    "url":"https://transcel.inet/m3/MicroLoan/ListAllMFIs",
+		    "content-type":"text/html",
+		    "method":"GET"
+		}
+	    ]
+	}
+    ]
+}

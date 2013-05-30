@@ -1,0 +1,18 @@
+Parse the command list to start the invasion: func hajime:zombie.go
+* Start the invasion
+* Send back stats 
+
+
+Do something with the message to store the stats that the zombies will
+be sending back: func start:master.go
+VALS
+
+implement the config file parsing to handle many use cases, then go
+and handle the semantics with the slave behaviour, then handle the
+message passing format between the slaves to the master (for real
+time results)
+then i can work on working on the stats, use ncurses to get realtime graphs
+
+
+features:
+web front-end
