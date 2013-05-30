@@ -24,26 +24,9 @@ type request struct {
 	ContentType string `json:"content-type"`
 	Method string `json:"method"`
 
-	/* For post, not necessary.
-     * Basically, for response you just write how the data -should- be formatted.
-     * Response: variable to store the response in, dump it otherwise.
-     * Response syntax: string: str(var) -- Catch all //greedy
-     * int: int(var)
-     * List: [var1,var2...]var (can just use []var for variable sized response)
-     * json: {}var -- ex: {str(var11)}var1 (var1.var11 = "the string")
-     *
-     * Example response:
-     * { "userid": 1010201, "sessionid": 10000 }
-     * response: {int(userid), int(sessionid)}resp
-     * Access via: resp.userid or resp.sessionid
-     */
 	PostData string `json:"post-data"`
 	Response string `json:"resp"`
 
-	/* Can actually perform functionality on the response data.
-     * ex: response = []thelist
-     * func: [ "for range(thelist)x: if x<1 then x=1 else nil;" ]
-     */
 	Func []string `json:"func"`
 }
 type command struct {
@@ -73,7 +56,10 @@ type Zombie struct {
 	Conn net.Conn
 	Limbs []chan int
 }
-
+type Error struct {
+	err error
+	context string
+}
 /* End Structs */
 
 var file = flag.String("f", "config.json", "The config file")
