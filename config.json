@@ -8,16 +8,12 @@
 	{
 	    "uri":"tsung1",
 	    "ncpu":2
-	},
-	{
-	    "uri":"tsung2",
-	    "ncpu":2
 	}
     ],
     "commandlist":[
 	{
 	    "probability": 30,
-	    "iterations": 10000,
+	    "iterations": 1011,
 	    "sequence": [
 		{
 		    "url":"https://transcel.inet/m3/customer/18768183164",

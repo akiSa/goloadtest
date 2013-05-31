@@ -8,12 +8,13 @@ import (
 	"strconv"
 	"errors"
 	"time"
+	"os/signal"
 )
 /*
 checkZombies connects to the zombies via tcp, and sends the first syn "HELLO LITTLE ONE"
 */
 func checkZombies (zombie client, zombchan chan Zombie, zomberr chan error, master Master){
-	timeout := time.Millisecond * 5000	
+	//timeout := time.Millisecond * 5000	
 
 	fmt.Println ("Connecting to: " + zombie.Uri)
 	zombconn, err := net.Dial("tcp", zombie.Uri+":"+strconv.Itoa(master.Port))
@@ -25,10 +26,10 @@ func checkZombies (zombie client, zombchan chan Zombie, zomberr chan error, mast
 	zomb := Zombie{zombie, zombconn, []chan int{}}
 
 	msg := make ([]byte, 1024)
-	zomb.Conn.SetReadDeadline(time.Now().Add(timeout) )
-	_, err = zomb.Conn.Read(msg)
+	//zomb.Conn.SetReadDeadline(time.Now().Add(timeout) )
+	bytesRead, err := zomb.Conn.Read(msg)
 	if err != nil { zomberr <- err; return}
-	if string(msg) == ack {
+	if string(msg[0:bytesRead]) == ack {
 		// Write master info, port/uri
 		masterJson, err := json.Marshal(master)
 		if err != nil { zomberr <- err; return}
@@ -37,10 +38,10 @@ func checkZombies (zombie client, zombchan chan Zombie, zomberr chan error, mast
 
 		//Clear msg buffer and read for the ack
 		for i:=0; i<len(msg); i++ {	msg[i]=0x00; }
-		zomb.Conn.SetReadDeadline(time.Now().Add(timeout) )
-		_, err = zomb.Conn.Read(msg)
+		//zomb.Conn.SetReadDeadline(time.Now().Add(timeout) )
+		bytesRead, err = zomb.Conn.Read(msg)
 		if err != nil { zomberr <- err; return}
-		if string(msg) != ack { zomberr <- errors.New(string(msg)); return }
+		if string(msg[0:bytesRead]) != ack { zomberr <- errors.New(string(msg)); return }
 
 		// Write zombie info, uri/ncpu
 		zombJson, err := json.Marshal(zomb.Info)
@@ -50,12 +51,13 @@ func checkZombies (zombie client, zombchan chan Zombie, zomberr chan error, mast
 
 		//Clear msg buffer and read for the ack
 		for i:=0; i<len(msg); i++ {	msg[i]=0x00; }
-		zomb.Conn.SetReadDeadline(time.Now().Add(timeout) )
-		_, err = zomb.Conn.Read(msg)
+		//zomb.Conn.SetReadDeadline(time.Now().Add(timeout) )
+
+		bytesRead, err = zomb.Conn.Read(msg)
 		//Reset the read deadline
-		zomb.Conn.SetReadDeadline(time.Time{})
+		//zomb.Conn.SetReadDeadline(time.Time{})
 		if err != nil { zomberr <- err; return}
-		if string(msg) != ack { zomberr <- errors.New(string(msg)); return }
+		if string(msg[0:bytesRead]) != ack { zomberr <- errors.New(string(msg)); return }
 
 		zombchan <- zomb
 	}else {
@@ -92,7 +94,7 @@ func masterStart(cfg config){
 		case err = <- zomberr:
 			fmt.Println (err.Error())
 			fmt.Println("One of the zombies is not in-line! Will not proceed without the army!")
-			//Tell each zombie to die.
+			//Tell each zombie to die.n
 			for _, zombie := range zombies{	zombie.Conn.Write([]byte(dieMsg)) }
 			os.Exit(1)
 		}
@@ -109,7 +111,7 @@ func masterStart(cfg config){
 			 */
 			vals := make (chan string)
 			for _,zombi := range zombies{ go startInvasion(zombi, clist, vals) };
-			theWorld(cfg, zombies, vals) ; break
+			theWorld(cfg, zombies, vals)
 		} else if flaggu == "q" {
 			killZombies(zombies); break
 		} else { fmt.Println("TRY AGAIN: ! to start, q to quit."); fmt.Scan(&flaggu) }
@@ -122,6 +124,9 @@ func theWorld(cfg config, zombies []Zombie, vals chan string) {
 	passer := make (chan string)
 	go inputHandler (passer)
 
+	sigint := make (chan os.Signal, 1)
+	signal.Notify(sigint, os.Interrupt)
+	
 	for {
 		select {
 		case meirei := <- passer:
@@ -129,6 +134,7 @@ func theWorld(cfg config, zombies []Zombie, vals chan string) {
 			case "h":
 				displayHelp()
 			case "q":
+				fmt.Println("Quitting!")
 				killZombies(zombies)
 				time.Sleep(1 * time.Second)
 				os.Exit(1)
@@ -136,8 +142,14 @@ func theWorld(cfg config, zombies []Zombie, vals chan string) {
 				fmt.Println(cfg)
 			}
 		case val := <- vals:
-			//Got some vals from a zombie, handle here
+			//Got some vals from a zombie, handle here; for some reason not getting vals.
 			fmt.Println(val)
+		case <- sigint:
+			//C-c from user
+			fmt.Println("bai bai")
+			killZombies(zombies)
+			time.Sleep(1 * time.Second)
+			os.Exit(1)
 		}
 	}
 }
@@ -154,16 +166,22 @@ func inputHandler(passer chan string){
 }
 //TODO: Better error handling in startInvasion
 func startInvasion(zombie Zombie, cmdList []byte, vals chan string){
-	fmt.Println ("Sending the list of my demands!")
 	msg := make([]byte, 1024)
 	_, err := zombie.Conn.Write([]byte("!"))
 	if err != nil { fmt.Println(err.Error()) }
-	if _,_ =zombie.Conn.Read(msg); string(msg) != ack { fmt.Println(string(msg)); os.Exit(1) }
+	bytesRead, err := zombie.Conn.Read(msg)
+	if string(msg[0:bytesRead]) != ack {
+		fmt.Println("NOT ACK",string(msg[0:bytesRead]));
+		os.Exit(1)
+	}
+
+	fmt.Println("Sending command list!", string(cmdList))
 	_, err = zombie.Conn.Write(cmdList)
-	if err != nil { fmt.Println(err.Error()) }
-	_, err = zombie.Conn.Read(msg)
-	if err != nil { fmt.Println(err.Error()) }
-	if string(msg) != ack { fmt.Println(string(msg)); os.Exit(1) }
+	
+	if err != nil { fmt.Println(err.Error()); os.Exit(1) }
+	bytesRead, err = zombie.Conn.Read(msg)
+	if err != nil { fmt.Println(err.Error()); os.Exit(1) }
+	if string(msg[0:bytesRead]) != ack { fmt.Println("NOT ACK",string(msg[0:bytesRead])); os.Exit(1) }
 
 	zombie.Limbs = append(zombie.Limbs, make(chan int))
 	zombie.Limbs = append(zombie.Limbs, make(chan int))
@@ -182,8 +200,26 @@ func readConn(zombie Zombie, vals chan string){
 			case deadMsg:
 				zombie.Conn.Close()
 				return
-			default:
-				vals <- string(msg)
+			case startStream:
+				fmt.Println("Starting stream!")
+				for {
+					/* STATE
+                    State where we're reading in values until startStream again.
+                    */
+					for i:=0; i<len(msg); i++ {	msg[i]=0x00; }
+					_, err = zombie.Conn.Read(msg)
+					if err != nil { fmt.Println (err.Error) }
+					switch string(msg) {
+					case deadMsg:
+						zombie.Conn.Close()
+						return
+					case startStream:
+						break
+					default:
+						vals <- string(msg)
+					}
+										
+				}
 			}
 		}
 		for i:=0; i<len(msg); i++ {	msg[i]=0x00; }

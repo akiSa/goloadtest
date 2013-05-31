@@ -12,11 +12,12 @@ import (
 )
 
 const (
-	syn = "HELLO LITTLE ONE"
-	ack = "BLARGH"
+	syn = "syn"
+	ack = "ack"
 	pingMsg = "ピング"
 	dieMsg = "死んでくれる"
 	deadMsg = "死んでる"
+	startStream = "%"
 )
 /* Structs */
 type request struct {
@@ -42,6 +43,9 @@ type config struct {
 	Port int `json:"port"`
 	Master client `json:"master"`
 	Zombies []client `json:"zombies"`
+	CommandList []command `json:"commandlist"`
+}
+type zombieCmd struct {
 	CommandList []command `json:"commandlist"`
 }
 type Master struct {

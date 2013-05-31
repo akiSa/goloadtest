@@ -16,3 +16,11 @@ then i can work on working on the stats, use ncurses to get realtime graphs
 
 features:
 web front-end
+   
+
+* Send back data constantly to get real-time graphs.
+* max-users in config
+* time in config
+* Every time a run finishes, tell a chan that it's finished, decrement current users.
+  - if current users < max users, then another user can be created (users being a command.)
+  - 
