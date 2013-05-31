@@ -9,6 +9,8 @@ import (
 	"encoding/json"
 	"time"
 	"math/rand"
+//	"github.com/blakesmith/go-grok/grok"
+	"github.com/rckclmbr/gogrok/grok"
 )
 func okaerinasai (conn net.Conn, cfg config) {
 	timeout := time.Millisecond * 5000
@@ -125,12 +127,23 @@ func attack(cmd *command) {
 	
 	//do the command $iterations times.
 	for i:= 0; i < cmd.Iterations; i++ {
-		//For each iteration, iterate through all the sequences
+		//For each iteration, iterate through the sequence
 		for _, req := range cmd.Sequence {
-			fmt.Println (req)
 			//url = cmd.Url
 			//ctype = cmd.ContentType
 			//method = cmd.Method, etc
+			pattern := &req.Response
+			//pattern := "%{DAY:s}"
+			g := grok.New()
+			g.AddPatternsFromFile("patterns")
+			g.Compile(*pattern)
+			
+
+			//Do stuff to get response.
+			
+			/*match, err := g.Match(httpresp)
+            match = map[string]string
+			match["DAY"] or match["DAY:day"] if resp : %{DAY} or %{DAY:day}*/
 		}
 	}
 }
