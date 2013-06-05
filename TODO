@@ -24,3 +24,8 @@ web front-end
 * Every time a run finishes, tell a chan that it's finished, decrement current users.
   - if current users < max users, then another user can be created (users being a command.)
   - 
+
+note: handle sequence in master until the seqEnd, then remap to the results, and trash the sid. when reading in values, first value after startStream is the sid, send that to parseVals as well as the val
+need a parser
+
+Read buffer char by char, make state machine, buffer = buffer[1:len(buffer)] after every char read

@@ -64,6 +64,7 @@ func okaerinasai (conn net.Conn) {
 func zombieHeart(zombie Zombie){
 	msg := make ([]byte, 2028)
 	invStart := make(chan int)
+	fmt.Println("Heart Start!")
 	for {
 		bytesRead, err := zombie.Conn.Read(msg)
 		if err != nil { fmt.Println (err.Error()); os.Exit(1) }
@@ -78,8 +79,9 @@ func zombieHeart(zombie Zombie){
 			bytesRead, err := zombie.Conn.Read(msg)
 			if err != nil { fmt.Println(err); zombie.Conn.Write([]byte(err.Error())) }
 			clist := string(msg[0:bytesRead])
-			
-			go hajime(zombie, invStart, clist)
+			hajimedone := make (chan bool)
+			go hajime(zombie, invStart, clist, hajimedone)
+			<- hajimedone
 			
 		case pingMsg:
 		case dieMsg:
@@ -95,7 +97,7 @@ func zombieHeart(zombie Zombie){
 	}
 }
 
-func hajime(zombie Zombie, handler chan int, clist string){
+func hajime(zombie Zombie, handler chan int, clist string, hajimedone chan bool){
 	msg := make ([]byte, 1024)
 
 	var clistArray []command
@@ -106,60 +108,106 @@ func hajime(zombie Zombie, handler chan int, clist string){
 	for i:=0; i<len(msg); i++ {	msg[i]=0x00; }
 	zombie.Conn.Write([]byte(ack))
 
-	// PROBLEM HERE SOMEWHERE
-	cmdList := []*command{}
-	probcount := 0
-	problimit := 100
+	var probsum int
+	var pc int
 	probslice := [100]*command{}
-	for _, cmd := range clistArray {
-		cmdList = append(cmdList, &cmd);
-		fmt.Println("COMMAND!",cmd)
+	probmap := [100]int{}
+	for iter, cmd := range clistArray {
+		probsum += cmd.Probability
+		
+		for i:=0; i < cmd.Probability; i++ {
+			probmap[pc] = iter
+			probslice[pc] = &cmd
 
-		for i:= 0; i < cmd.Probability; i++ {
-			probslice[i] = &cmd
-			probcount ++
-			if probcount > problimit {
-				fmt.Println("Probcount >100!!")
-				//Handle this, probcount goes from 0-99
-			}
+			pc++
 		}
 	}
-	for _,cmd := range cmdList {
-		fmt.Println("COMMAND!",*cmd)
-	}
+	//Handle this, probably quit.
+	if probsum != 100 {	fmt.Println("probabilities don't match up")	}
+
+	// for _,cmd := range cmdList {
+	// 	fmt.Println("COMMAND!",*cmd)
+	// }
 	time.Sleep(time.Second)
-	done := make (chan bool)
 	var numprocs int
 	maxusers := runtime.GOMAXPROCS(0)
+	killHandler := []chanHandler{}
+
+	done := make(chan chanHandler)
+	valStream := make(chan results)
 	//This should be i to max users
 	for i:= 0; i < maxusers; i++ {
-		rand.Seed(time.Now().Unix())
+		rand.Seed(time.Now().UnixNano())
 		numprocs ++
-		go attack(zombie, probslice[rand.Int()%100], done)
+		randcmd := rand.Int()%100
+		rand.Seed(time.Now().UnixNano())
+		killHandler = append(killHandler, chanHandler{ make (chan bool), i, rand.Int()%100000, probmap[randcmd] } )
+		go attack(zombie, probslice[randcmd], killHandler[i], valStream, done)
 	}
+	hajimedone <- true
 	for {
 		select {
-		case <- done:
+		case <- done://val := <- done:
+			//This is when one of the procs are done, need to re-randomize val.sid
 			numprocs --
-			if numprocs <= maxusers {
-				rand.Seed(time.Now().Unix())
-				go attack(zombie, probslice[rand.Int()%100], done)
+			//rand.Seed(time.Now().UnixNano())
+			//newval := chanHandler{val.Chan, val.Val, rand.Int()%100000 }
+			// if numprocs <= maxusers {
+			// 	rand.Seed(time.Now().UnixNano())
+			// 	go attack(zombie, probslice[rand.Int()%100], newval, valStream, done)
+			//}
+			//fmt.Println(val, done)
+			if numprocs == 0 {
+				fmt.Println("Sending deadMsg")
+				
+				killAllRoutines(killHandler)
+				//panic("fdsadsa")
+				//zombie.Conn.Close()
+				zombie.Conn.Write([]byte(deadMsg))
+				return
 			}
 		case finger := <- handler:
 			switch finger{
 			case 0:
 				close(handler)
+				fmt.Println("GOT KILL REQ")
+				zombie.Conn.Close()
+				killAllRoutines(killHandler)
 				return
 			}
+		case stream := <- valStream:
+			/*STATE
+             *State where one value will be sent at a time until startStream again
+             */
+			sendString := startStream+strconv.Itoa(stream.CHandler.Sid)
+			sendString += "|"+strconv.Itoa(stream.CHandler.Cmd)
+			for _, val := range stream.SeqTimes{
+				sendString += "|"+strconv.FormatInt(val, 10)
+			}
+			sendString+=startStream
+			fmt.Println(sendString)
+			zombie.Conn.Write([]byte(sendString))
 		}
 	}
 	//Then after, do a select { case x := <- userend: decrement current-users; default: if current-users < max-users
 	//go attack(probslice[rand.Int()%100]) then time.Sleep(1 * time.Second) regardless
 }
 
-func attack(zombie Zombie, cmd *command, a chan bool) {
+func killAllRoutines(killHandler []chanHandler) {
+	for _, kill := range killHandler {
+		go killChan(kill)
+	}
+}
+func killChan(kill chanHandler) {
+	go func() {
+		kill.Chan <- true
+	}()
+}
+func attack(zombie Zombie, cmd *command, kill chanHandler, valStream chan results, done chan chanHandler) {
 	//Parse command list to create the variables needed to store whatever values. Going to use a map structure
+	
 	fmt.Println(cmd.Iterations, "Iterations!")
+	allDone := make (chan bool)
 	//do the command $iterations times.
 	for i:= 0; i < cmd.Iterations; i++ {
 		//For each iteration, iterate through the sequence
@@ -196,16 +244,33 @@ func attack(zombie Zombie, cmd *command, a chan bool) {
 		}
 		//strconv.FormatInt(seqTimes, 10))
 
-		fmt.Println(seqTimes)
-		zombie.Conn.Write([]byte(startStream))
-		time.Sleep(time.Millisecond * 100)
-		for _, val := range seqTimes{
-			zombie.Conn.Write([]byte(strconv.FormatInt(val, 10)))
-			time.Sleep(time.Millisecond * 100)
+		//fmt.Println(seqTimes, kill.Val)
+
+		/*
+         * Before writing, check to see if it has received a kill message.
+         */
+		//timeout := make(chan bool, 1)
+		// go func() {
+		// 	time.Sleep(1 * time.Nanosecond)
+		// 	timeout <- true
+		// }()
+		select {
+		case <- kill.Chan:
+			return
+		case <- time.After(100)://timeout:
+			//continue
 		}
-		time.Sleep(time.Millisecond * 100)
-		zombie.Conn.Write([]byte(startStream))
+		//Results
+		go func() {
+			result := results{kill, seqTimes}
+			valStream <- result
+			allDone <- true
+		}()
 	}
+	for n:=0; n < cmd.Iterations; n++ {
+		<- allDone
+	}
+	done <- kill
 }
 
 func zombieStart(cfg config) {

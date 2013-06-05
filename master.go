@@ -191,39 +191,66 @@ func startInvasion(zombie Zombie, cmdList []byte, vals chan string){
 }
 func readConn(zombie Zombie, vals chan string){
 	msg := make([]byte, 1024)
-	for{
-		_, err := zombie.Conn.Read(msg)
-		if err != nil {
-			fmt.Println (err.Error) //Needs better error handling
-		}else{
-			switch string(msg) {
-			case deadMsg:
-				zombie.Conn.Close()
-				return
-			case startStream:
-				fmt.Println("Starting stream!")
-				for {
-					/* STATE
-                    State where we're reading in values until startStream again.
-                    */
-					for i:=0; i<len(msg); i++ {	msg[i]=0x00; }
-					_, err = zombie.Conn.Read(msg)
-					if err != nil { fmt.Println (err.Error) }
-					switch string(msg) {
-					case deadMsg:
-						zombie.Conn.Close()
-						return
-					case startStream:
-						break
-					default:
-						vals <- string(msg)
+	fmt.Println("Reading conn")
+	// for{
+	// 	br, err := zombie.Conn.Read(msg)
+	// 	if err != nil {
+	// 		fmt.Println (err.Error) //Needs better error handling
+	// 	}else{
+	// 		fmt.Println("Message:",string(msg[0:br]))
+	var state int
+	var data []byte
+	/* State info
+     * State 0: Default
+     * State 1: Reading chars
+     */
+	for {
+		br, err := zombie.Conn.Read(msg)
+		//fmt.Println("Message:",string(msg))
+		if err != nil {	fmt.Println(err.Error()); break }
+		for i:=0; i<br;i++ {
+			//fmt.Println("State:", state, "NextByte:",string(msg[i]))
+			switch state {
+			case 0:
+				switch string(msg[i]) {
+				case startStream:
+					state = 1
+				case deadMsg:
+					return
+				}
+			case 1:
+				switch string(msg[i]) {
+				case startStream:
+					state = 0
+					if len(data) > 0 {
+						go parseData(data);
+						data = []byte{}
 					}
-										
+				default:
+					data = append(data, msg[i])
 				}
 			}
 		}
-		for i:=0; i<len(msg); i++ {	msg[i]=0x00; }
+		//fmt.Println("reading again")
+
 	}
+	// 		case 1:
+	// 		}
+	// 		switch string(msg) {
+	// 		case deadMsg:
+	// 			//zombie.Conn.Close()
+	// 			return
+	// 		default:
+	// 			/* STATE */
+	// 			val := string(msg[0:br])
+	// 			for i:=0; i<len(msg); i++ {	msg[i]=0x00; }
+	// 			vals <- val
+	// 		}
+	// 	}
+	// }
+}
+func parseData (data []byte){
+	fmt.Println(string(data))
 }
 func start(zombie Zombie, limb chan int, vals chan string){
 	go readConn(zombie, vals)
@@ -251,7 +278,6 @@ func ping(zombie Zombie, limb chan int){
 		switch finger {
 		case 0:
 			/* Kill all zombies case. */
-			tick.Stop()
 			close(limb)
 			return
 		}

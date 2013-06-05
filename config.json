@@ -13,7 +13,7 @@
     "commandlist":[
 	{
 	    "probability": 30,
-	    "iterations": 1011,
+	    "iterations": 200,
 	    "sequence": [
 		{
 		    "url":"https://transcel.inet/m3/customer/18768183164",
@@ -30,7 +30,7 @@
 	},
 	{
 	    "probability": 70,
-	    "iterations": 10000,
+	    "iterations": 200,
 	    "sequence": [
 		{
 		    "url":"https://transcel.inet/m3/MicroLoan/ListAllMFIs",

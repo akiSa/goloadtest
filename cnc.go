@@ -15,8 +15,8 @@ const (
 	syn = "syn"
 	ack = "ack"
 	pingMsg = "ピング"
-	dieMsg = "死んでくれる"
-	deadMsg = "死んでる"
+	dieMsg = "^"
+	deadMsg = "&"//"死んでる"
 	startStream = "%"
 )
 /* Structs */
@@ -29,6 +29,16 @@ type request struct {
 	Response string `json:"resp"`
 
 	Func []string `json:"func"`
+}
+type chanHandler struct {
+	Chan chan bool
+	Val int //Which thread it is
+	Sid int
+	Cmd int
+}
+type results struct {
+	CHandler chanHandler
+	SeqTimes []int64
 }
 type command struct {
 	Probability int `json:"probability"`
