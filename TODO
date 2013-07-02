@@ -29,3 +29,5 @@ note: handle sequence in master until the seqEnd, then remap to the results, and
 need a parser
 
 Read buffer char by char, make state machine, buffer = buffer[1:len(buffer)] after every char read
+
+NOTE: Send back timestamp as well

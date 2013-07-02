@@ -143,6 +143,7 @@ func theWorld(cfg config, zombies []Zombie, vals chan string) {
 			}
 		case val := <- vals:
 			//Got some vals from a zombie, handle here; for some reason not getting vals.
+			//NOTE: Use a goroutine to process the value.
 			fmt.Println(val)
 		case <- sigint:
 			//C-c from user
@@ -189,6 +190,12 @@ func startInvasion(zombie Zombie, cmdList []byte, vals chan string){
 	go ping(zombie, zombie.Limbs[0])
 	go start(zombie, zombie.Limbs[1], vals)
 }
+/*
+func readConn (zombie Zombie, vals chan string) {
+  br, err := zombie.Conn.read(msg); //this only completes after a successful read if no timeout has been specified
+  go parseBuffer(msg, vals)
+}
+*/
 func readConn(zombie Zombie, vals chan string){
 	msg := make([]byte, 1024)
 	fmt.Println("Reading conn")
